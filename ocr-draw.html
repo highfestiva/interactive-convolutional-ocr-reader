@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+<script>
+$(function() {
+  var mouseDown = false;
+  var finishedDrawing = new Date();
+  var cnv = document.getElementById('paint');
+  var w = 28;
+  var h = 28;
+  cnv.mulWidth = w/cnv.clientWidth;
+  cnv.mulHeight = h/cnv.clientHeight;
+  cnv.width = w;
+  cnv.height = h;
+  var ctx = cnv.getContext('2d');
+  var cnvOff = $('#paint').offset();
+  var curve = [];
+  var curves = [];
+  curves.push(curve);
+  function drawCurves() {
+    ctx.clearRect(0, 0, cnv.width, cnv.height);
+    for (c of curves) {
+      ctx.beginPath();
+      var x=c[0][0], y=c[0][1];
+      ctx.moveTo(x-0.1, y-0.1);
+      for (e of c) {
+        x=e[0], y=e[1];
+        ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+  }
+  function draw(e) {
+    var x = (e.pageX-cnvOff.left) * cnv.mulWidth;
+    var y = (e.pageY-cnvOff.top)  * cnv.mulHeight;
+    curve.push([x,y])
+    drawCurves();
+    finishedDrawing = new Date();
+  }
+  function analyze() {
+    if (new Date()-finishedDrawing >= 1000) {
+      console.log('analyzing...');
+      $.post(
+          '/ocr-char',
+          { img: cnv.toDataURL("image/png") },
+          function(data) {
+            console.log('Result:', data);
+            curve = [];
+            curves = [];
+            drawCurves();
+            curves.push(curve);
+            $('#output').val($('#output').val() + data);
+          });
+    }
+  }
+  $('#paint').mousemove(function(e) {
+    if (mouseDown === true) {
+      draw(e);
+    }
+  });
+  $('#paint').mousedown(function(e) {
+    draw(e);
+    mouseDown = true;
+  });
+  $('#paint').mouseup(function(e) {
+    mouseDown = false;
+    finishedDrawing = new Date();
+    curve = [];
+    curves.push(curve);
+    setTimeout(analyze, 1100);
+  });
+});
+</script>
+<style>
+body,h1,p,canvas,input {
+  margin: auto;
+  display: table;
+}
+#paint {
+  width: 400px;
+  height: 400px;
+  border: 1px solid black;
+}
+#output {
+  margin-top: 10px;
+  width: 400px;
+}
+</style>
+</head>
+<body>
+<h1>Instructions</h1>
+<p>Draw one digit at a time. Wait until canvas cleared in between.</p>
+<canvas id="paint"></canvas>
+<input id="output"></input>
+</body>
+</html>
